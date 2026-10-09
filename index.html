@@ -127,6 +127,8 @@ tr.fin .cpn{background:var(--accent);color:#fff}
 .prng{width:200px}
 .pr{font-family:var(--mono);font-size:11.5px}.pr b{color:var(--accent);font-weight:600}
 .segt th .th-ax{position:relative;display:block;width:200px;height:14px;margin-top:2px}.segt th .th-ax em{position:absolute;transform:translateX(-50%);font-style:normal;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.pl-lamp{margin:0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,#4a7fb5 12%,transparent);font-size:13.5px;line-height:1.6}
+.ngt{display:inline-block;font-size:10px;padding:0 4px;border-radius:4px;background:#2b3a52;color:#cfe0f5;font-family:var(--body);vertical-align:1px}
 details.mx{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 details.mx summary{cursor:pointer;font-weight:500}
 .mxt{font-size:12.5px;margin-top:10px}.mxt td,.mxt th{padding:5px 8px}.mxt td:first-child{position:sticky;left:0;background:var(--surface)}
@@ -149,6 +151,7 @@ footer a{color:inherit}
   <div><b>컷오프 여유</b> · CP 도착 시각과 그 CP 컷오프 시각의 차이입니다. 컷오프 이후 도착한 인원은 제외했습니다.</div>
   <div><b>내 기록 비교</b> · 배번으로 UTMB Live 공개 기록(CP 통과 시간)을 찾습니다. 이름은 이 페이지에 들어 있지 않습니다. 순위는 그 CP에 도착한 모든 출발자 기준, 같은 기록대는 내 완주 시간 ±1시간(60K ±30분) 완주자입니다.</div>
   <div><b>날씨</b> · Open-Meteo 과거 기상 API(ERA5 기반 재분석)에서 각 CP 좌표·고도의 시간별 값을 가져왔습니다.</div>
+  <div><b>헤드랜턴</b> · 제주(북위 33.4°) 기준 일몰 18:17, 일출 06:30으로 계산했습니다. 숲길이나 흐린 날은 일몰 전에 어두워지고, 완전히 어두워지는 시민박명 끝은 일몰 약 25분 뒤(18:41)입니다. 켜고 끄는 지점은 CP 사이를 일정한 속도로 간다고 보고 추정했습니다.</div>
   <div><b>레이스 플랜</b> · 목표 시간 ±1시간(60K는 ±30분)에 완주한 사람들의 "CP 도착 시간 ÷ 완주 시간" 비율 중앙값에 목표 시간을 곱했습니다. 기록이 적은 시간대도 흔들리지 않도록 비율을 썼습니다. 표시 인원은 목표 시간 앞뒤 반 칸 안의 완주자 수입니다. 2027년 출발 시각이 바뀌면 "출발 후" 열을 기준으로 보세요.</div>
   <div><b>상위/중위/하위</b> · 완주 기록 순으로 완주자를 3등분한 그룹입니다.</div>
 </footer>
@@ -443,16 +446,30 @@ function analyzeMe(id,sel){
   return out;
 }
 
+// Jeju sun times (KST, minutes from 10/02 00:00): sunset ~18:17, sunrise ~06:30; civil twilight ±25min
+const SUN={set:[1098,2537,3975],rise:[1830,3270]};
+const isDark=t=>(t>=1098&&t<1830)||(t>=2537&&t<3270)||t>=3975||t<390;
+function lampPlan(id,A){
+  const P=DATA[id].pts.slice(1), s0=START_MIN[id], end=s0+A[A.length-1];
+  const ev=[...SUN.set.map(t=>[t,"on"]),...SUN.rise.map(t=>[t,"off"])].filter(([t])=>t>s0&&t<end).sort((a,b)=>a[0]-b[0]);
+  const loc=t=>{const m=t-s0; let j=A.findIndex(a=>a>m); if(j<0) j=A.length-1; const pm=j?A[j-1]:0, pk=j?P[j-1][2]:0; const km=pk+(m-pm)/((A[j]-pm)||1)*(P[j][2]-pk); return `${j?ko(P[j-1][0]):ko(DATA[id].pts[0][0])} → ${ko(P[j][0])} 구간, 약 ${Math.round(km)}km`};
+  let darkMin=0; for(let t=s0;t<end;t+=5) if(isDark(t)) darkMin+=5;
+  const fmtC=t=>{const d=Math.floor(t/1440),r=t%1440; return `${DAYS[d]} ${String(Math.floor(r/60)).padStart(2,"0")}:${String(r%60).padStart(2,"0")}`};
+  const steps=[isDark(s0)?"출발부터 켜고 출발":"출발 땐 필요 없음"];
+  ev.forEach(([t,k])=>steps.push(`${fmtC(t)}쯤 <b>${k==="on"?"켜기":"끄기"}</b> (${loc(t)})`));
+  if(!darkMin) return `<p class="pl-lamp"><b>헤드랜턴</b> · 이 플랜이면 해 있을 때 끝나요. 그래도 필수 장비는 챙기세요.</p>`;
+  return `<p class="pl-lamp"><b>헤드랜턴 · 약 ${Math.round(darkMin/60*2)/2}시간 사용</b><br>${steps.join(" → ")}</p>`;
+}
 function planner(id){
   const rows=PLAN[id], P=DATA[id].pts.slice(1), X=EXTRA[id];
   let sel=rows.findIndex(r=>r[0]>=DATA[id].ftq[3]); if(sel<0) sel=rows.length-1;
   try{const v=localStorage.getItem("tj-plan-"+id); if(v!==null&&+v>=0&&+v<rows.length) sel=+v}catch(e){}
   const step=rows[1][0]-rows[0][0];
   setTimeout(()=>{const box=document.getElementById("pl-"+id); if(!box) return;
-    const rg=box.querySelector("input[type=range]"), out=box.querySelector(".pl-big"), sub=box.querySelector(".pl-n"), tb=box.querySelector("tbody"), th=box.querySelector("thead tr"), warn=box.querySelector(".pl-warn"), meOut=box.querySelector(".me-out");
+    const lamp=box.querySelector(".pl-lampbox"), rg=box.querySelector("input[type=range]"), out=box.querySelector(".pl-big"), sub=box.querySelector(".pl-n"), tb=box.querySelector("tbody"), th=box.querySelector("thead tr"), warn=box.querySelector(".pl-warn"), meOut=box.querySelector(".me-out");
     const draw=i=>{ST.sel[id]=i; rg.value=i; const r=rows[i], A=planRest(id,i), RS=getRest(id), totR=RS.reduce((a,b)=>a+b,0);
       const me=ST.me&&ST.me.race===id?ST.me.row.slice(4):null;
-      out.textContent=hk(r[0])+" 완주"+(totR?` + 휴식 ${totR}분`:""); sub.innerHTML=`2026년 ${fmtH(r[0]-step/2)}~${fmtH(r[0]+step/2)} 완주자 ${r[1]}명 기준 · ${totR?`<b>예상 완주 ${fmtM(A[A.length-1])}</b> · `:""}종료 ${clock(id,A[A.length-1]).join(" ")}${totR?` · <button type="button" class="rest-reset">휴식 초기화</button>`:""}`;
+      out.textContent=hk(r[0])+" 완주"+(totR?` + 휴식 ${totR}분`:""); sub.innerHTML=`2026년 ${fmtH(r[0]-step/2)}~${fmtH(r[0]+step/2)} 완주자 ${r[1]}명 기준 · ${totR?`<b>예상 완주 ${fmtM(A[A.length-1])}</b> · `:""}종료 ${clock(id,A[A.length-1]).join(" ")}${totR?` · <button type="button" class="rest-reset">휴식 초기화</button>`:""}`; lamp.innerHTML=lampPlan(id,A);
       th.innerHTML=`<th>CP</th><th class="num c-clk">통과 시각·날씨</th><th class="num c-el">출발 후</th><th class="num c-seg">구간·km당</th><th class="num">컷오프 여유</th>${me?`<th class="num me">내 2026</th><th class="num me">플랜 대비</th>`:""}`;
       let worst=null;
       tb.innerHTML=P.map((p,j)=>{const m=A[j], prev=j?A[j-1]:0, k=clock(id,m); const last=j===P.length-1; const km=p[2]-(j?P[j-1][2]:0);
@@ -460,7 +477,7 @@ function planner(id){
           if(j>0&&buf<120&&(!worst||buf<worst.buf)) worst={buf,name:ko(p[0]),rate,key};
           bufCell=`<span class="chip ${buf<60?"hi":buf<120?"mid":"ok"}">${fmtM(buf)}</span>`}
         let meCells=""; if(me){const v=me[j]; if(v==null) meCells=`<td class="num me">–</td><td class="num me">–</td>`; else {const d=v-m; const pv=j?me[j-1]:0; meCells=`<td class="num me">${fmtM(v)}<span class="meta">${rankAt(id,j,v)[0]}위${pv!=null?`<span class="mp">${pace(v-pv,km)}/km</span>`:""}</span></td><td class="num me"><span class="dlt ${d>5?"late":d<-5?"early":""}">${sgn(d)}</span></td>`}}
-        return `<tr class="${last?"fin":""}"><td><span class="seg"><span class="cpn">${last?"FIN":"CP"+(j+1)}</span>${ko(p[0])}</span><span class="meta">${p[2]}km ${last?"":svcChips(p[5])}</span>${last?"":`<span class="rest ${RS[j]?"on":""}"><button type="button" data-j="${j}" data-d="-5" aria-label="${ko(p[0])} 휴식 5분 줄이기" ${RS[j]?"":"disabled"}>−</button><span>휴식 +${RS[j]}분</span><button type="button" data-j="${j}" data-d="5" aria-label="${ko(p[0])} 휴식 5분 늘리기">+</button></span>`}</td><td class="num c-clk"><b class="clk"><small>${k[0]}</small> ${k[1]}</b><span class="meta wx">${wxTxt(wxAt(id,p[0],m))}</span></td><td class="num c-el">${fmtM(m)}</td><td class="num c-seg">${fmtM(m-prev)}<span class="meta">${pace(m-prev,km)}/km</span></td><td class="num">${bufCell}</td>${meCells}</tr>`}).join("");
+        return `<tr class="${last?"fin":""}"><td><span class="seg"><span class="cpn">${last?"FIN":"CP"+(j+1)}</span>${ko(p[0])}</span><span class="meta">${p[2]}km ${last?"":svcChips(p[5])}</span>${last?"":`<span class="rest ${RS[j]?"on":""}"><button type="button" data-j="${j}" data-d="-5" aria-label="${ko(p[0])} 휴식 5분 줄이기" ${RS[j]?"":"disabled"}>−</button><span>휴식 +${RS[j]}분</span><button type="button" data-j="${j}" data-d="5" aria-label="${ko(p[0])} 휴식 5분 늘리기">+</button></span>`}</td><td class="num c-clk"><b class="clk"><small>${k[0]}</small> ${k[1]}</b><span class="meta wx">${isDark(START_MIN[id]+m)?`<span class="ngt">야간</span> `:""}${wxTxt(wxAt(id,p[0],m))}</span></td><td class="num c-el">${fmtM(m)}</td><td class="num c-seg">${fmtM(m-prev)}<span class="meta">${pace(m-prev,km)}/km</span></td><td class="num">${bufCell}</td>${meCells}</tr>`}).join("");
       box.classList.toggle("has-me",!!me);
       warn.hidden=!worst; if(worst) warn.innerHTML=`<b>${worst.name}에서 컷오프 여유가 ${fmtM(worst.buf)}입니다.</b> 2026년에 이 정도 여유(${BKL[worst.key]})로 도착한 사람의 최종 완주율은 ${worst.rate!=null?worst.rate+"%":"집계 불가"}였습니다.`;
       if(me){meOut.hidden=false; meOut.innerHTML=`<div class="me-h">배번 ${ST.me.row[0]} · 2026 ${DATA[id].name} 분석</div><ul class="notes">${analyzeMe(id,i).map(t=>`<li>${t}</li>`).join("")}</ul>`} else meOut.hidden=true;
@@ -485,6 +502,7 @@ function planner(id){
     <div class="pl-top"><div><div class="pl-lab">목표 완주 시간</div><div class="pl-big" aria-live="polite"></div><div class="pl-n"></div></div>
     <div class="pl-ctl"><button type="button" class="mn" aria-label="목표 시간 줄이기">−</button><input id="rg-${id}" type="range" min="0" max="${rows.length-1}" step="1" value="${sel}" aria-label="목표 완주 시간"><button type="button" class="pl" aria-label="목표 시간 늘리기">+</button></div>
     <div class="pl-ticks"><span>${hk(rows[0][0])}</span><span>${hk(rows[rows.length-1][0])}</span></div></div>
+    <div class="pl-lampbox"></div>
     <p class="pl-warn" hidden></p>
     <div class="scroll"><table class="pltab"><thead><tr></tr></thead><tbody></tbody></table></div>
   </div>
