@@ -400,7 +400,11 @@ function analyzeMe(id,sel){
     const loss=P.map((p,j)=>{const mine=seg(me.row,j), pm=medN(peers.map(r=>seg(r,j))); return mine!=null&&pm!=null?[j,mine-pm,pm]:null}).filter(Boolean);
     const worst=[...loss].sort((a,b)=>b[1]-a[1]).filter(x=>x[1]>=5).slice(0,2), best=[...loss].sort((a,b)=>a[1]-b[1]).filter(x=>x[1]<=-5).slice(0,1);
     const [rk,tot]=rankAt(id,A.length-1,T);
-    out.push(`<b>${fmtM(T)} 완주</b>, 전체 ${n(rk)}위 / ${n(tot)}명 (상위 ${Math.max(1,Math.round(rk/tot*100))}%).`);
+    const fins=RUN[id].r.filter(r=>r[1]==="f"&&r[4+A.length-1]!=null), fi=4+A.length-1;
+    const rkIn=g=>[g.filter(r=>r[fi]<T).length+1,g.length];
+    const sx=me.row[2], cat=me.row[3]||"", catL=cat?`${cat.slice(0,5).replace("-","~")}세 ${cat.endsWith("W")?"여자":"남자"}`:"";
+    const [sr,st]=rkIn(fins.filter(r=>r[2]===sx)), [cr,ct]=cat?rkIn(fins.filter(r=>r[3]===cat)):[0,0];
+    out.push(`<b>${fmtM(T)} 완주</b> · 전체 <b>${n(rk)}위</b> / ${n(tot)}명 (상위 ${Math.max(1,Math.round(rk/tot*100))}%)${sx?` · ${sx==="F"?"여자":"남자"} <b>${n(sr)}위</b> / ${n(st)}명`:""}${cat?` · 카테고리 <b>${n(cr)}위</b> / ${n(ct)}명`:""}.`);
     if(worst.length) out.push(`같은 기록대 완주자(${fmtH((T-W)/60)}~${fmtH((T+W)/60)}, ${peers.length}명)와 비교하면 가장 많이 잃은 구간은 ${worst.map(w=>`<b>${segName(P,w[0])}</b>(${sgn(w[1])})`).join(", ")}입니다.${best.length?` 가장 강했던 구간은 ${segName(P,best[0][0])}(${sgn(best[0][1])})입니다.`:""}`);
     // pacing: CP closest to 40% distance
     const total=P[P.length-1][2]; let mid=0; P.forEach((p,j)=>{if(Math.abs(p[2]-total*.4)<Math.abs(P[mid][2]-total*.4)) mid=j});
