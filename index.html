@@ -124,6 +124,9 @@ tr.fin .cpn{background:var(--accent);color:#fff}
 .rest button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .rest.on span{color:var(--accent);font-weight:600}
 .rest-reset{font:inherit;font-size:12px;border:none;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;padding:0}
+.prng{width:200px}
+.pr{font-family:var(--mono);font-size:11.5px}.pr b{color:var(--accent);font-weight:600}
+.segt th .th-ax{position:relative;display:block;width:200px;height:14px;margin-top:2px}.segt th .th-ax em{position:absolute;transform:translateX(-50%);font-style:normal;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
 details.mx{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 details.mx summary{cursor:pointer;font-weight:500}
 .mxt{font-size:12.5px;margin-top:10px}.mxt td,.mxt th{padding:5px 8px}.mxt td:first-child{position:sticky;left:0;background:var(--surface)}
@@ -285,19 +288,21 @@ function dnfBars(d){
 }
 
 function segTable(d){
-  const maxM=Math.max(...d.segs.map(s=>s.p90));
+  const pk=s=>[s.p10/s.km,s.p50/s.km,s.p90/s.km];
+  const lo=Math.floor(Math.min(...d.segs.map(s=>pk(s)[0]))), hi=Math.ceil(Math.max(...d.segs.map(s=>pk(s)[2])));
+  const sc=v=>(v-lo)/(hi-lo)*100;
   let cum=0;
-  const rows=d.segs.map((s,i)=>{cum+=s.p50; const p=d.pts[i+1];
-    const sc=v=>v/maxM*100;
+  const rows=d.segs.map((s,i)=>{cum+=s.p50; const p=d.pts[i+1]; const [a,m,z]=pk(s);
     return `<tr><td><span class="seg">${ko(s.frm)} → ${ko(s.to)}</span><span class="meta">${s.km}km · +${s.dp}m / −${s.dm}m</span></td>
     <td class="num">${fmtM(s.p50)}</td>
-    <td><div class="rng" title="상위 10% ${fmtM(s.p10)} · 하위 10% ${fmtM(s.p90)}"><span style="left:${sc(s.p10)}%;width:${sc(s.p90)-sc(s.p10)}%"></span><i style="left:calc(${sc(s.p50)}% - 1px)"></i></div><span class="meta">${fmtM(s.p10)} – ${fmtM(s.p90)}</span></td>
-    <td class="num">${pace(s.p50,s.km)}</td>
+    <td><div class="rng prng" title="1km 페이스 · 상위 10% ${pace(s.p10,s.km)} · 중앙값 ${pace(s.p50,s.km)} · 하위 10% ${pace(s.p90,s.km)}"><span style="left:${sc(a)}%;width:${sc(z)-sc(a)}%"></span><i style="left:calc(${sc(m)}% - 1px)"></i></div>
+      <span class="meta pr">${pace(s.p10,s.km)} – ${pace(s.p90,s.km)} · 중앙 <b>${pace(s.p50,s.km)}</b></span></td>
     <td class="num">${fmtM(cum)}</td>
     <td class="num">${p[4]?p[4].slice(6):"–"}</td>
     <td class="num">${chip(s.fat)}</td></tr>`}).join("");
-  return `<div class="scroll"><table><thead><tr><th>구간</th><th class="num">중앙값</th><th>상위10% – 하위10%</th><th class="num">1km당</th><th class="num">누적*</th><th class="num">컷오프</th><th class="num">피로 지수</th></tr></thead><tbody>${rows}</tbody></table></div>
-  <p class="sub">완주자 기준. *누적은 구간 중앙값을 더한 값으로, 중위권 완주자의 대략적인 도착 시각입니다. 컷오프는 해당 CP 도착 기준 시각입니다.</p>`;
+  const ticks=[]; const st=hi-lo>12?4:2; for(let v=Math.ceil(lo/st)*st;v<=hi;v+=st) ticks.push(v);
+  return `<div class="scroll"><table class="segt"><thead><tr><th>구간</th><th class="num">소요 중앙값</th><th>1km 페이스 범위<span class="th-ax">${ticks.map(v=>`<em style="left:${sc(v)}%">${v}분</em>`).join("")}</span></th><th class="num">누적*</th><th class="num">컷오프</th><th class="num">피로 지수</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="sub">완주자 기준. 막대는 상위 10%~하위 10% 완주자의 1km 페이스 범위, 세로선은 중앙값입니다(모든 구간 같은 눈금이라 왼쪽일수록 빠름). *누적은 구간 중앙값을 더한 값으로, 중위권 완주자의 대략적인 도착 시각입니다.</p>`;
 }
 
 function fatigue(d){
