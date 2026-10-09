@@ -112,7 +112,7 @@ th.me{color:var(--accent)}td.me{background:color-mix(in srgb,var(--accent) 6%,tr
 tr.fin .cpn{background:var(--accent);color:#fff}
 .mp::before{content:" · "}
 @media (max-width:520px){.mp{display:block}.mp::before{content:""}.has-me .pltab td,.has-me .pltab th{padding-inline:3px;font-size:12.5px}.has-me .cpn{min-width:0;margin-right:4px}}
-.ppl td.pc-c b{font-weight:600}.ppl td.pc-c .md{color:var(--muted);margin-left:4px}.ppl td{white-space:normal}.ppl tr.tot td{font-weight:600;border-bottom:2px solid var(--line)}
+.ppl td.pc-c b{font-weight:600}.ppl .best{display:block;font-family:var(--mono);font-size:12px;color:var(--accent);margin-top:1px}.ppl td.pc-c .md{color:var(--muted);margin-left:4px}.ppl td{white-space:normal}.ppl tr.tot td{font-weight:600;border-bottom:2px solid var(--line)}
 .pltab td:first-child{white-space:normal;min-width:118px}
 @media (max-width:520px){.pltab .c-seg{display:none}.rest{white-space:nowrap}.pltab td,.pltab th{padding-inline:3px;font-size:12px}.pltab .clk{font-size:14px}.pltab .chip{font-size:11px;padding:1px 5px}.pl-big{font-size:28px}.pltab td:first-child{max-width:118px;min-width:104px}.svc{display:flex;flex-wrap:wrap;margin:2px 0 0}}
 .svc{display:inline-flex;flex-wrap:wrap;gap:3px;margin-left:4px;vertical-align:1px}
@@ -339,10 +339,10 @@ function people(d,id){
   const R=RUN[id].r, fi=4+RUN[id].pids.length-1;
   const band=c=>{const a=parseInt(c); return a>=60?"60+":c.slice(0,5)};
   const cell=rows=>{const nn=rows.length; if(!nn) return `<td class="num pc-c">–</td>`; const f=rows.filter(r=>r[1]==="f"); const md=f.length>=3?medN(f.map(r=>r[fi])):null;
-    return `<td class="num pc-c"><b>${Math.round(f.length/nn*100)}%</b> <span class="md">${md!=null?fmtM(md):""}</span><span class="meta">${f.length}/${nn}명 완주</span></td>`};
+    const best=f.length?Math.min(...f.map(r=>r[fi])):null; return `<td class="num pc-c"><b>${Math.round(f.length/nn*100)}%</b> <span class="md">${md!=null?fmtM(md):""}</span><span class="meta">${f.length}/${nn}명 완주</span>${best!=null?`<span class="best">1위 ${fmtM(best)}</span>`:""}</td>`};
   const sexRows=s=>R.filter(r=>r[2]===s);
   const body=BANDS.map(([k,l])=>`<tr><td>${l}</td>${["H","F"].map(s=>cell(sexRows(s).filter(r=>band(r[3])===k))).join("")}</tr>`).join("");
-  return `<div class="card"><h3>누가 완주했나 · 성별·연령대</h3><p class="sub">칸마다 완주율, 완주 시간 중앙값, 완주/출발 인원. 연령대는 UTMB 카테고리 기준이고, 완주자 3명 미만이면 중앙값을 생략했습니다.</p>
+  return `<div class="card"><h3>누가 완주했나 · 성별·연령대</h3><p class="sub">칸마다 완주율, 완주 시간 중앙값, 완주/출발 인원, 그 그룹 1위 기록. 연령대는 UTMB 카테고리 기준이고, 완주자 3명 미만이면 중앙값을 생략했습니다.</p>
   <div class="scroll"><table class="ppl"><thead><tr><th>연령대</th><th class="num">남자</th><th class="num">여자</th></tr></thead><tbody>
   <tr class="tot"><td>전체</td>${["H","F"].map(s=>cell(sexRows(s))).join("")}</tr>${body}</tbody></table></div></div>`;
 }
